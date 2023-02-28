@@ -1,0 +1,2 @@
+# bottr
+Experiemental AI shenan
