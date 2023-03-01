@@ -1,4 +1,8 @@
+import re
 import yaml
+import html2markdown
+import os
+import warnings
 
 class ProcessingRule:
     pass
@@ -6,6 +10,57 @@ class ProcessingRule:
 class RemoveDuplicateEmptyLinesRule(ProcessingRule):
     def process(self, text):
         return "\n".join(filter(lambda x: x.strip(), text.split("\n")))
+
+class HtmlToMarkdownRule(ProcessingRule):
+    def process(self, text):
+        return html2markdown.convert(text)
+
+class ActionableRule(ProcessingRule):
+    def __init__(self, match, action):
+        self.match = match
+        self.action = action
+
+    def apply_action(self, text, match):
+        if self.action == "delete":
+            text = text.replace(match, "")
+        return text
+
+class MatchAndActionRule(ActionableRule):
+    def __init__(self, match, action):
+        self.match = match
+        self.action = action
+
+    def process(self, text):
+        pattern = re.compile(self.match)
+        matches = pattern.findall(text)
+        for match in matches:
+            text = self.apply_action(text, match)
+        return text
+
+class MatchMultipleStringsAndActionRule(ActionableRule):
+    def __init__(self, action, match=[], path=None):
+        super().__init__(match, action)
+        self.path = path
+
+    def process(self, text):
+        if self.path:
+            if not os.path.isdir(self.path):
+                warnings.warn(f"WARNING: Provided path '{self.path}' is invalid.")
+                return text
+
+            # If path is provided, read all files in the directory and concatenate their text
+            for root, _, files in os.walk(self.path):
+                for file in files:
+                    with open(os.path.join(root, file), "r") as f:
+                        self.match.append(f.read())
+
+        for match in self.match:
+            pattern = re.compile(match)
+            matches = pattern.findall(text)
+            for m in matches:
+                text = self.apply_action(text, m)
+        return text
+
 
 def create_processing_rule(rule_config):
     """
