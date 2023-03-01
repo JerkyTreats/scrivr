@@ -4,6 +4,7 @@ import multiprocessing
 from typing import List
 from document_processor.processing_rules import ProcessingRule, read_config_file
 import yaml
+import chardet
 
 class DocumentProcessor:
     def __init__(self, input_dir=None, output_dir=None, num_processes=1, config_path=None):
@@ -11,23 +12,27 @@ class DocumentProcessor:
         self.output_dir = output_dir
         self.num_processes = num_processes
         self.config_path = config_path
+        self.processing_rules = []
 
-    def parse_file(self, file_path: str, processing_rules: List[ProcessingRule]) -> str:
+    def parse_file(self, file_path: str) -> str:
         """Parses a file using the provided processing rules"""
-        with open(file_path, "r") as f:
+        with open(file_path, "rb") as f:
+            bytes = f.read()
+            encoding = chardet.detect(bytes)["encoding"]
+        with open(file_path, "r", encoding=encoding) as f:
             text = f.read()
 
-        for rule in processing_rules:
+        for rule in self.processing_rules:
             text = rule.process(text)
 
         return text
 
-    def process_files(self, file_paths: List[str], processing_rules: List[ProcessingRule], output_dir: str) -> None:
+    def process_files(self, file_paths: List[str], output_dir: str) -> None:
         """Processes files using the provided processing rules and saves the results to the output directory"""
         for file_path in file_paths:
             output_file_path = os.path.join(output_dir, os.path.basename(file_path))
 
-            html = self.parse_file(file_path, processing_rules)
+            html = self.parse_file(file_path)
 
             with open(output_file_path, "w") as f:
                 f.write(html)
@@ -46,13 +51,16 @@ class DocumentProcessor:
                 if 'num_processes' in config and not self.num_processes:
                     self.num_processes = config['num_processes']
 
-            processing_rules = read_config_file(self.config_path)
+            self.processing_rules = read_config_file(self.config_path)
         else:
-            processing_rules = []
+            self.processing_rules = []
 
         # Use command line args if provided
         if self.input_dir:
-            file_paths = [os.path.join(self.input_dir, file) for file in os.listdir(self.input_dir)]
+            file_paths = []
+            for root, _, files in os.walk(self.input_dir):
+                for filename in files:
+                    file_paths.append(os.path.join(root, filename))
         else:
             raise ValueError("No input directory specified")
 
@@ -70,7 +78,7 @@ class DocumentProcessor:
 
         for i in range(self.num_processes):
             p = multiprocessing.Process(
-                target=self.process_files, args=(chunks[i], processing_rules, self.output_dir)
+                target=self.process_files, args=(chunks[i], self.processing_rules, self.output_dir)
             )
             p.start()
             processes.append(p)
