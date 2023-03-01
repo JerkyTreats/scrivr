@@ -1,7 +1,7 @@
 import unittest
 import os.path
-from html_parser import read_config_file, create_processing_rule
-from html_parser.processing_rules import RemoveDuplicateEmptyLinesRule, HtmlToMarkdownRule, MatchAndActionRule
+from document_processor.processing_rules import read_config_file, create_processing_rule
+from document_processor.processing_rules import RemoveDuplicateEmptyLinesRule, HtmlToMarkdownRule, MatchAndActionRule
 import shutil
 import tempfile
 import pytest
