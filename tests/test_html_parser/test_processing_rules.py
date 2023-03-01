@@ -52,7 +52,7 @@ class TestHtmlToMarkdownRule(unittest.TestCase):
     def test_process(self):
         # Test valid HTML to markdown conversion
         html = '<h1>This is a heading</h1><p>This is a paragraph.</p>'
-        expected_output = '# This is a heading\n\nThis is a paragraph.'
+        expected_output = '# This is a heading\n\nThis is a paragraph.\n'
         output = self.rule.process(html)
         self.assertEqual(output, expected_output)
 

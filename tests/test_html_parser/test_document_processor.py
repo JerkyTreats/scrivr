@@ -1,15 +1,18 @@
 import os
+import io
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch, MagicMock
 from typing import List
-from document_processor.processing_rules import ProcessingRule, RemoveDuplicateEmptyLinesRule
+from document_processor.processing_rules import RemoveDuplicateEmptyLinesRule,HtmlToMarkdownRule
 from document_processor import DocumentProcessor
 
 class TestDocumentProcessor(unittest.TestCase):
     def setUp(self) -> None:
         self.test_dir = tempfile.mkdtemp()
         self.document_processor = DocumentProcessor()
+        self.output_dir = os.path.join(self.test_dir, 'output')
         self.rule = RemoveDuplicateEmptyLinesRule()
 
     def tearDown(self) -> None:
@@ -101,10 +104,62 @@ class TestDocumentProcessor(unittest.TestCase):
         self.assertEqual(self.document_processor.input_dir, "test_input")
         self.assertEqual(self.document_processor.output_dir, "test_output")
         self.assertEqual(len(self.document_processor.processing_rules), 1)
-        self.assertEqual(str(self.document_processor.processing_rules[0]), "RemoveDuplicateEmptyLinesRule()")
+        assert isinstance(self.document_processor.processing_rules[0], RemoveDuplicateEmptyLinesRule)
+
+    def test_main_no_input_directory(self):
+        processor = DocumentProcessor()
+        with self.assertRaises(ValueError) as cm:
+            processor.main()
+        self.assertEqual(str(cm.exception), "No input directory specified")
+
+    def test_main_no_output_directory(self):
+        processor = DocumentProcessor(input_dir='test_input')
+        with self.assertRaises(ValueError) as cm:
+            processor.main()
+        self.assertEqual(str(cm.exception), "No output directory specified")
+
+    def test_output_dir_created(self):
+        input_dir = os.path.join(os.path.dirname(__file__), 'test_files', 'input_dir')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = os.path.join(temp_dir, 'output_dir')
+            self.document_processor.input_dir = input_dir
+            self.document_processor.output_dir = output_dir
+            self.document_processor.main()
+            self.assertTrue(os.path.exists(output_dir))
+
+    @patch("multiprocessing.Process")
+    def test_main_multiprocessing(self, mock_process):
+        input_dir = os.path.join(os.path.dirname(__file__), "test_files")
+        output_dir = os.path.join(self.test_dir, "output")
+
+        document_processor = DocumentProcessor(input_dir=input_dir, output_dir=output_dir, num_processes=2)
+        document_processor.main()
+
+        mock_process.assert_called_with(
+            target=document_processor.process_files,
+            args=([],[],output_dir),
+        )
 
 
+class TestParseFile(unittest.TestCase):
+    def setUp(self) -> None:
+        self.document_processor = DocumentProcessor()
 
+    def test_parse_file_html(self):
+        html_text = '<html><body><h1>Hello, world!</h1><p>This is some text.</p></body></html>'
+        expected_output = '# Hello, world!\nThis is some text.'
+
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', encoding='utf-8') as html_file:
+            html_file.write(html_text)
+            html_file_path = html_file.name
+
+        self.document_processor.processing_rules = [HtmlToMarkdownRule(), RemoveDuplicateEmptyLinesRule()]
+
+        result = self.document_processor.parse_file(html_file_path)
+
+        self.assertEqual(result, expected_output)
+
+        os.remove(html_file_path)
 
 if __name__ == "__main__":
     unittest.main()

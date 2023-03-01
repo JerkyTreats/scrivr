@@ -1,6 +1,6 @@
 import re
 import yaml
-import html2markdown
+import pypandoc
 import os
 import warnings
 
@@ -13,7 +13,7 @@ class RemoveDuplicateEmptyLinesRule(ProcessingRule):
 
 class HtmlToMarkdownRule(ProcessingRule):
     def process(self, text):
-        return html2markdown.convert(text)
+        return pypandoc.convert_text(text, 'md', format='html')
 
 class ActionableRule(ProcessingRule):
     def __init__(self, match, action):

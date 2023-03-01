@@ -32,10 +32,10 @@ class DocumentProcessor:
         for file_path in file_paths:
             output_file_path = os.path.join(output_dir, os.path.basename(file_path))
 
-            html = self.parse_file(file_path)
+            parsed_text = self.parse_file(file_path)
 
             with open(output_file_path, "w") as f:
-                f.write(html)
+                f.write(parsed_text)
 
     def main(self) -> None:
         """Main function that processes files and writes the results to the output directory"""
@@ -55,7 +55,7 @@ class DocumentProcessor:
         else:
             self.processing_rules = []
 
-        # Use command line args if provided
+        # Walk the input_dir for all files in all subdirectories
         if self.input_dir:
             file_paths = []
             for root, _, files in os.walk(self.input_dir):
