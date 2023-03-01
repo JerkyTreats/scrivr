@@ -44,8 +44,12 @@ class TestDocumentProcessor(unittest.TestCase):
         expected_output2 = "<html>\n<head>\n<title>File 2</title>\n</head>\n<body>\n<p>Test paragraph.</p>\n</body>\n</html>"
         output_dir = os.path.join(self.test_dir, "output")
         os.mkdir(output_dir)
+
         self.document_processor.processing_rules = [self.rule]
-        self.document_processor.process_files([file1_path, file2_path], output_dir)
+        self.document_processor.input_dir = self.test_dir
+        self.document_processor.output_dir = output_dir
+        self.document_processor.num_processes = 1
+        self.document_processor.process_files()
 
         # Verify output files
         output_file1_path = os.path.join(output_dir, "file1.html")
@@ -72,7 +76,7 @@ class TestDocumentProcessor(unittest.TestCase):
 
                 # Run the DocumentProcessor on the temporary directory
                 dp = DocumentProcessor(input_dir=tempdir, output_dir=tempdir)
-                dp.main()
+                dp.process_files()
 
                 # Check that all the files were processed
                 for subdir in subdirs:
@@ -89,6 +93,7 @@ class TestDocumentProcessor(unittest.TestCase):
         test_config = """
         input_dir: test_input
         output_dir: test_output
+        num_processes: 2
         processing_rules:
           - type: RemoveDuplicateEmptyLinesRule
         """
@@ -100,23 +105,24 @@ class TestDocumentProcessor(unittest.TestCase):
 
         # Load test config
         self.document_processor.config_path = test_config_file_path
-        self.document_processor.main()
+        self.document_processor.load_config()
         self.assertEqual(self.document_processor.input_dir, "test_input")
         self.assertEqual(self.document_processor.output_dir, "test_output")
+        self.assertEqual(self.document_processor.num_processes, 2)
         self.assertEqual(len(self.document_processor.processing_rules), 1)
         assert isinstance(self.document_processor.processing_rules[0], RemoveDuplicateEmptyLinesRule)
 
     def test_main_no_input_directory(self):
         processor = DocumentProcessor()
         with self.assertRaises(ValueError) as cm:
-            processor.main()
-        self.assertEqual(str(cm.exception), "No input directory specified")
+            processor.process_files()
+        self.assertEqual(str(cm.exception), "No input directory specified.")
 
     def test_main_no_output_directory(self):
         processor = DocumentProcessor(input_dir='test_input')
         with self.assertRaises(ValueError) as cm:
-            processor.main()
-        self.assertEqual(str(cm.exception), "No output directory specified")
+            processor.process_files()
+        self.assertEqual(str(cm.exception), "No output directory specified.")
 
     def test_output_dir_created(self):
         input_dir = os.path.join(os.path.dirname(__file__), 'test_files', 'input_dir')
@@ -124,7 +130,7 @@ class TestDocumentProcessor(unittest.TestCase):
             output_dir = os.path.join(temp_dir, 'output_dir')
             self.document_processor.input_dir = input_dir
             self.document_processor.output_dir = output_dir
-            self.document_processor.main()
+            self.document_processor.process_files()
             self.assertTrue(os.path.exists(output_dir))
 
     @patch("multiprocessing.Process")
@@ -133,11 +139,11 @@ class TestDocumentProcessor(unittest.TestCase):
         output_dir = os.path.join(self.test_dir, "output")
 
         document_processor = DocumentProcessor(input_dir=input_dir, output_dir=output_dir, num_processes=2)
-        document_processor.main()
+        document_processor.process_files()
 
         mock_process.assert_called_with(
-            target=document_processor.process_files,
-            args=([],[],output_dir),
+            target=document_processor.process_files_chunk,
+            args=([],),
         )
 
 
