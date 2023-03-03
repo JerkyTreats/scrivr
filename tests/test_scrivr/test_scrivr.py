@@ -5,13 +5,13 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 from typing import List
-from document_processor.processing_rules import RemoveDuplicateEmptyLinesRule,HtmlToMarkdownRule
-from document_processor import DocumentProcessor
+from scrivr.processing_rules import *
+from scrivr import Scrivr
 
-class TestDocumentProcessor(unittest.TestCase):
+class TestScrivr(unittest.TestCase):
     def setUp(self) -> None:
         self.test_dir = tempfile.mkdtemp()
-        self.document_processor = DocumentProcessor()
+        self.document_processor = Scrivr()
         self.output_dir = os.path.join(self.test_dir, 'output')
         self.rule = RemoveDuplicateEmptyLinesRule()
 
@@ -74,8 +74,8 @@ class TestDocumentProcessor(unittest.TestCase):
                         with open(os.path.join(subdir_path, file), 'w') as f:
                             f.write('<html><head><title>{}</title></head><body></body></html>'.format(file))
 
-                # Run the DocumentProcessor on the temporary directory
-                dp = DocumentProcessor(input_dir=tempdir, output_dir=tempdir)
+                # Run the Scrivr on the temporary directory
+                dp = Scrivr(input_dir=tempdir, output_dir=tempdir)
                 dp.process_files()
 
                 # Check that all the files were processed
@@ -113,13 +113,13 @@ class TestDocumentProcessor(unittest.TestCase):
         assert isinstance(self.document_processor.processing_rules[0], RemoveDuplicateEmptyLinesRule)
 
     def test_main_no_input_directory(self):
-        processor = DocumentProcessor()
+        processor = Scrivr()
         with self.assertRaises(ValueError) as cm:
             processor.process_files()
         self.assertEqual(str(cm.exception), "No input directory specified.")
 
     def test_main_no_output_directory(self):
-        processor = DocumentProcessor(input_dir='test_input')
+        processor = Scrivr(input_dir='test_input')
         with self.assertRaises(ValueError) as cm:
             processor.process_files()
         self.assertEqual(str(cm.exception), "No output directory specified.")
@@ -138,7 +138,7 @@ class TestDocumentProcessor(unittest.TestCase):
         input_dir = os.path.join(os.path.dirname(__file__), "test_files")
         output_dir = os.path.join(self.test_dir, "output")
 
-        document_processor = DocumentProcessor(input_dir=input_dir, output_dir=output_dir, num_processes=2)
+        document_processor = Scrivr(input_dir=input_dir, output_dir=output_dir, num_processes=2)
         document_processor.process_files()
 
         mock_process.assert_called_with(
@@ -149,7 +149,7 @@ class TestDocumentProcessor(unittest.TestCase):
 
 class TestParseFile(unittest.TestCase):
     def setUp(self) -> None:
-        self.document_processor = DocumentProcessor()
+        self.document_processor = Scrivr()
 
     def test_parse_file_html(self):
         html_text = '<html><body><h1>Hello, world!</h1><p>This is some text.</p></body></html>'

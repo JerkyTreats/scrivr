@@ -2,11 +2,11 @@ import os
 import argparse
 import multiprocessing
 from typing import List
-from document_processor.processing_rules import ProcessingRule, read_config_file
+from scrivr.processing_rules import read_config_file
 import yaml
 import chardet
 
-class DocumentProcessor:
+class Scrivr:
     def __init__(self, input_dir=None, output_dir=None, num_processes=1, config_path=None):
         self.input_dir = input_dir
         self.output_dir = output_dir
@@ -56,7 +56,6 @@ class DocumentProcessor:
         processes = []
 
         for i in range(self.num_processes):
-            print(chunks[i])
             p = multiprocessing.Process(
                 target=self.process_files_chunk, args=(chunks[i],)
             )

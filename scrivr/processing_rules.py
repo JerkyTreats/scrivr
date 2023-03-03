@@ -3,6 +3,7 @@ import yaml
 import pypandoc
 import os
 import warnings
+from bs4 import BeautifulSoup
 
 class ProcessingRule:
     pass
@@ -15,6 +16,15 @@ class HtmlToMarkdownRule(ProcessingRule):
     def process(self, text):
         return pypandoc.convert_text(text, 'md', format='html')
 
+class HtmlVisibleTextRule(ProcessingRule):
+    def process(self, html: str) -> str:
+        soup = BeautifulSoup(html, 'html.parser')
+        for element in soup.find_all(['script', 'style', 'head', 'title', 'meta', 'link']):
+            element.extract()
+        for element in soup.find_all(lambda tag: tag.has_attr('style') and 'display:none' in tag['style']):
+            element.extract()
+        return soup.get_text()
+
 class ActionableRule(ProcessingRule):
     def __init__(self, match, action):
         self.match = match
@@ -22,7 +32,11 @@ class ActionableRule(ProcessingRule):
 
     def apply_action(self, text, match):
         if self.action == "delete":
-            text = text.replace(match, "")
+            match = re.escape(match)
+            text = re.sub(match, "", text)
+        elif self.action == "delete_line":
+            lines = text.split("\n")
+            text = "\n".join([line for line in lines if match not in line])
         return text
 
 class MatchAndActionRule(ActionableRule):
@@ -55,8 +69,30 @@ class MatchMultipleStringsAndActionRule(ActionableRule):
                         self.match.append(f.read())
 
         for match in self.match:
+            match = re.escape(match)
             pattern = re.compile(match)
             matches = pattern.findall(text)
+            for m in matches:
+                text = self.apply_action(text, m)
+        return text
+
+class MatchStringsAction(ActionableRule):
+    def __init__(self, action, match_strings=[], path=None):
+        super().__init__(match_strings, action)
+        self.path = path
+
+    def process(self, text):
+        if self.path:
+            if not os.path.isfile(self.path):
+                warnings.warn(f"WARNING: Provided path '{self.path}' is invalid.")
+                return text
+            with open(self.path, "r") as f:
+                file_strings = f.read().splitlines()
+                self.match.extend(file_strings)
+
+        for match in self.match:
+            match = re.escape(match)
+            matches = re.findall(match.strip('\n'), text)
             for m in matches:
                 text = self.apply_action(text, m)
         return text

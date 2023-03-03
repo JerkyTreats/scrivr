@@ -1,10 +1,10 @@
 import unittest
 import os.path
-from document_processor.processing_rules import read_config_file, create_processing_rule
-from document_processor.processing_rules import RemoveDuplicateEmptyLinesRule, HtmlToMarkdownRule, MatchAndActionRule
+from scrivr.processing_rules import *
 import shutil
 import tempfile
 import pytest
+from bs4 import BeautifulSoup
 
 class TestConfigFile(unittest.TestCase):
 
@@ -72,6 +72,13 @@ class TestMatchMultipleStringsAndActionRule(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp_path)
 
+    def test_process_remove_from_middle(self):
+        html = 'test\nhello\ntest\n'
+        expected_output = 'test\n\ntest\n'
+        rule = MatchMultipleStringsAndActionRule('delete', ['hello'])
+        output = rule.process(html)
+        self.assertEqual(output, expected_output)
+
     def test_process(self):
         input_str = "This is a test string that contains multiple matching strings"
         rule_config = {
@@ -135,6 +142,31 @@ class TestMatchMultipleStringsAndActionRule(unittest.TestCase):
         input_str = "This is a test string that contains multiple matching strings"
         with pytest.warns(UserWarning):
             output_str = rule.process(input_str)
+
+class TestMatchStringsAction(unittest.TestCase):
+    def test_process(self):
+        text = "The quick brown fox jumps over the lazy dog"
+        expected_output = "The  brown  jumps over the  dog"
+        rule = MatchStringsAction(match_strings=["quick", "fox", "lazy"], action="delete")
+        output = rule.process(text)
+        self.assertEqual(output.strip(), expected_output.strip())
+
+    def test_match_strings_action_delete_line(self):
+        text = "Hello\nWorld\nBye\n"
+        expected_output = "World\n"
+        rule = MatchStringsAction(action="delete_line", match_strings=["Hello", "Bye"])
+        output = rule.process(text)
+        self.assertEqual(output.strip(), expected_output.strip())
+
+class TestHtmlVisibleTextRule(unittest.TestCase):
+    def test_process(self):
+        html = '<html><head><title>Test</title></head><body><div style="display:none">This text should be hidden.</div><p>This is the visible text.</p></body></html>'
+        expected_output = '<p>This is the visible text.</p>'
+        rule = HtmlVisibleTextRule()
+        output = rule.process(html)
+        soup_expected = BeautifulSoup(expected_output, 'html.parser')
+        soup_output = BeautifulSoup(output, 'html.parser')
+        self.assertEqual(soup_expected.text, soup_output.text)
 
 
 if __name__ == '__main__':
