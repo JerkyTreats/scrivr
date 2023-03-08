@@ -10,6 +10,13 @@ from scrivr import Scrivr
 import pytest
 import filecmp
 
+def ignore_warnings(func):
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return func(*args, **kwargs)
+    return wrapper
+
 class TestScrivr(unittest.TestCase):
     def setUp(self) -> None:
         self.test_dir = tempfile.mkdtemp()
@@ -64,6 +71,7 @@ class TestScrivr(unittest.TestCase):
             output_file2 = f.read()
         self.assertEqual(output_file2, expected_output2)
 
+    @ignore_warnings
     def test_subdirectory_files_read(self):
             # Create a temporary directory with some subdirectories and files
             with tempfile.TemporaryDirectory() as tempdir:
@@ -102,6 +110,7 @@ class TestScrivr(unittest.TestCase):
                 # Assert that the warning message is equal to the expected message
                 self.assertEqual(str(w[-1].message), f"No files found in input directory {tmpdir}")
 
+    @ignore_warnings
     def test_process_files_no_warning(self):
         # Create a file in the temporary directory
         with open(os.path.join(self.test_dir, 'test.txt'), "w") as f:

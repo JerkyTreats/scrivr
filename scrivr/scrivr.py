@@ -75,11 +75,13 @@ class Scrivr:
         for file_path in file_paths:
             base_name, ext = os.path.splitext(os.path.basename(file_path))
 
-            output_file_root = os.path.join(self.output_dir, base_name)
             output_file_path = os.path.join(self.output_dir, "{}{}".format(base_name, ext))
 
             # Modify output_file_path extension if output_filetype is not empty
             if self.output_filetype:
+                output_file_root = os.path.join(self.output_dir, base_name)
+
+                # Avoid creating `file..txt` if output_filetype starts with '.'
                 ext = self.output_filetype[1:] if self.output_filetype.startswith(".") else self.output_filetype
                 output_file_path = output_file_root + '.' + ext
 
