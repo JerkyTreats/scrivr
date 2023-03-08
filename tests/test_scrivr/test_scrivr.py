@@ -7,11 +7,13 @@ from unittest.mock import patch, MagicMock
 from typing import List
 from scrivr.processing_rules import *
 from scrivr import Scrivr
+import pytest
+import filecmp
 
 class TestScrivr(unittest.TestCase):
     def setUp(self) -> None:
         self.test_dir = tempfile.mkdtemp()
-        self.document_processor = Scrivr()
+        self.scrivr = Scrivr()
         self.output_dir = os.path.join(self.test_dir, 'output')
         self.rule = RemoveDuplicateEmptyLinesRule()
 
@@ -26,8 +28,8 @@ class TestScrivr(unittest.TestCase):
 
         # Parse test file
         expected_output = "<html>\n<head>\n<title>Test</title>\n</head>\n<body>\n<p>Test paragraph.</p>\n</body>\n</html>"
-        self.document_processor.processing_rules = [self.rule]
-        output = self.document_processor.parse_file(test_file_path)
+        self.scrivr.processing_rules = [self.rule]
+        output = self.scrivr.parse_file(test_file_path)
         self.assertEqual(output, expected_output)
 
     def test_process_files(self) -> None:
@@ -42,22 +44,22 @@ class TestScrivr(unittest.TestCase):
         # Process test files
         expected_output = "<html>\n<head>\n<title>File 1</title>\n</head>\n<body>\n<p>Test paragraph.</p>\n</body>\n</html>"
         expected_output2 = "<html>\n<head>\n<title>File 2</title>\n</head>\n<body>\n<p>Test paragraph.</p>\n</body>\n</html>"
-        output_dir = os.path.join(self.test_dir, "output")
-        os.mkdir(output_dir)
+        # output_dir = os.path.join(self.test_dir, "output")
+        # os.mkdir(output_dir)
 
-        self.document_processor.processing_rules = [self.rule]
-        self.document_processor.input_dir = self.test_dir
-        self.document_processor.output_dir = output_dir
-        self.document_processor.num_processes = 1
-        self.document_processor.process_files()
+        self.scrivr.processing_rules = [self.rule]
+        self.scrivr.input_dir = self.test_dir
+        self.scrivr.output_dir = self.output_dir
+        self.scrivr.num_processes = 1
+        self.scrivr.process_files()
 
         # Verify output files
-        output_file1_path = os.path.join(output_dir, "file1.html")
+        output_file1_path = os.path.join(self.output_dir, "file1.html")
         with open(output_file1_path, "r") as f:
             output_file1 = f.read()
         self.assertEqual(output_file1, expected_output)
 
-        output_file2_path = os.path.join(output_dir, "file2.html")
+        output_file2_path = os.path.join(self.output_dir, "file2.html")
         with open(output_file2_path, "r") as f:
             output_file2 = f.read()
         self.assertEqual(output_file2, expected_output2)
@@ -88,6 +90,32 @@ class TestScrivr(unittest.TestCase):
                             processed_html = f.read()
                             self.assertIn('<title>{}</title>'.format(file), processed_html)
 
+    def test_no_files_warning(self):
+        # Create a temporary empty directory for input
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Instantiate Scrivr with the empty directory
+            s = Scrivr(input_dir=tmpdir, output_dir=os.path.join(tmpdir, 'output'), num_processes=1)
+
+            # Capture the warning message
+            with warnings.catch_warnings(record=True) as w:
+                s.process_files()
+                # Assert that the warning message is equal to the expected message
+                self.assertEqual(str(w[-1].message), f"No files found in input directory {tmpdir}")
+
+    def test_process_files_no_warning(self):
+        # Create a file in the temporary directory
+        with open(os.path.join(self.test_dir, 'test.txt'), "w") as f:
+            f.write("test")
+
+        # Run the process_files method
+        s = Scrivr(str(self.test_dir), str(self.test_dir))
+        with pytest.warns(None) as warning:
+            s.process_files()
+
+        # Check that no warnings were thrown
+        assert len(warning) == 0
+
+
     def test_load_config(self) -> None:
         # Create test config
         test_config = """
@@ -104,13 +132,13 @@ class TestScrivr(unittest.TestCase):
             f.write(test_config)
 
         # Load test config
-        self.document_processor.config_path = test_config_file_path
-        self.document_processor.load_config()
-        self.assertEqual(self.document_processor.input_dir, "test_input")
-        self.assertEqual(self.document_processor.output_dir, "test_output")
-        self.assertEqual(self.document_processor.num_processes, 2)
-        self.assertEqual(len(self.document_processor.processing_rules), 1)
-        assert isinstance(self.document_processor.processing_rules[0], RemoveDuplicateEmptyLinesRule)
+        self.scrivr.config_path = test_config_file_path
+        self.scrivr.load_config()
+        self.assertEqual(self.scrivr.input_dir, "test_input")
+        self.assertEqual(self.scrivr.output_dir, "test_output")
+        self.assertEqual(self.scrivr.num_processes, 2)
+        self.assertEqual(len(self.scrivr.processing_rules), 1)
+        assert isinstance(self.scrivr.processing_rules[0], RemoveDuplicateEmptyLinesRule)
 
     def test_main_no_input_directory(self):
         processor = Scrivr()
@@ -128,28 +156,69 @@ class TestScrivr(unittest.TestCase):
         input_dir = os.path.join(os.path.dirname(__file__), 'test_files', 'input_dir')
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = os.path.join(temp_dir, 'output_dir')
-            self.document_processor.input_dir = input_dir
-            self.document_processor.output_dir = output_dir
-            self.document_processor.process_files()
+            self.scrivr.input_dir = input_dir
+            self.scrivr.output_dir = output_dir
+            self.scrivr.process_files()
             self.assertTrue(os.path.exists(output_dir))
+
+    def test_output_filetype_not_empty(self) -> None:
+        expected_string = "This is some test text."
+
+        # Create a temporary file with a .txt extension
+        input_file_path = os.path.join(self.test_dir, "test.txt")
+        with open(input_file_path, "w") as f:
+            f.write(expected_string)
+
+        # Set output_filetype to ".html"
+        self.scrivr.output_filetype = ".html"
+
+        # Call process_files with the temporary file
+        self.scrivr.input_dir = self.test_dir
+        self.scrivr.output_dir = self.output_dir
+        self.scrivr.processing_rules = [self.rule]
+        self.scrivr.process_files()
+
+        # Verify that the processed file has the correct extension and contents
+        base_name, _ = os.path.splitext(os.path.basename(input_file_path))
+        output_file_path = os.path.join(
+            self.scrivr.output_dir, base_name + ".html"
+        )
+        assert os.path.exists(output_file_path)
+        with open(output_file_path) as f:
+            test = f.read
+            assert f.read() == expected_string
+
+
+    def test_output_filetype_empty(self):
+        input_file_path = os.path.join(self.test_dir, "test.txt")
+        with open(input_file_path, "w") as f:
+            f.write("test")
+
+        s = Scrivr(input_dir=self.test_dir, output_dir=self.test_dir, output_filetype="")
+        s.process_files()
+
+        output_file_path = os.path.join(self.test_dir, "test.txt")
+        assert os.path.exists(output_file_path)
+        assert filecmp.cmp(input_file_path, output_file_path)
+
 
     @patch("multiprocessing.Process")
     def test_main_multiprocessing(self, mock_process):
         input_dir = os.path.join(os.path.dirname(__file__), "test_files")
         output_dir = os.path.join(self.test_dir, "output")
 
-        document_processor = Scrivr(input_dir=input_dir, output_dir=output_dir, num_processes=2)
-        document_processor.process_files()
+        scrivr = Scrivr(input_dir=input_dir, output_dir=output_dir, num_processes=2)
+        scrivr.process_files()
 
         mock_process.assert_called_with(
-            target=document_processor.process_files_chunk,
+            target=scrivr.process_files_chunk,
             args=([],),
         )
 
 
 class TestParseFile(unittest.TestCase):
     def setUp(self) -> None:
-        self.document_processor = Scrivr()
+        self.scrivr = Scrivr()
 
     def test_parse_file_html(self):
         html_text = '<html><body><h1>Hello, world!</h1><p>This is some text.</p></body></html>'
@@ -159,9 +228,9 @@ class TestParseFile(unittest.TestCase):
             html_file.write(html_text)
             html_file_path = html_file.name
 
-        self.document_processor.processing_rules = [HtmlToMarkdownRule(), RemoveDuplicateEmptyLinesRule()]
+        self.scrivr.processing_rules = [HtmlToMarkdownRule(), RemoveDuplicateEmptyLinesRule()]
 
-        result = self.document_processor.parse_file(html_file_path)
+        result = self.scrivr.parse_file(html_file_path)
 
         self.assertEqual(result, expected_output)
 
