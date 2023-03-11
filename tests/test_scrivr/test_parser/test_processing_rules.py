@@ -1,6 +1,6 @@
 import unittest
 import os.path
-from scrivr.processing_rules import *
+from scrivr.parser.processing_rules import *
 import shutil
 import tempfile
 import pytest

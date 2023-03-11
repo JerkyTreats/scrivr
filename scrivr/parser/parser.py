@@ -2,12 +2,12 @@ import os
 import argparse
 import multiprocessing
 from typing import List
-from scrivr.processing_rules import read_config_file
+from .processing_rules import read_config_file
 import yaml
 import chardet
 import warnings
 
-class Scrivr:
+class ScrivrParser:
     def __init__(self, input_dir=None, output_dir=None, num_processes=1, config_path=None, output_filetype=''):
         self.input_dir = input_dir
         self.output_dir = output_dir
@@ -114,4 +114,4 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config_path", help="the path to the config file to use for processing rules")
     args = parser.parse_args()
 
-    Scrivr(input_dir=args.input_dir, output_dir=args.output_dir, num_processes=args.num_processes, config_path=args.config_path, output_filetype=args.output_filetype).process_files()
+    ScrivrParser(input_dir=args.input_dir, output_dir=args.output_dir, num_processes=args.num_processes, config_path=args.config_path, output_filetype=args.output_filetype).process_files()

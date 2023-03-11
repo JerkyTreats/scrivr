@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 from typing import List
-from scrivr.processing_rules import *
-from scrivr import Scrivr
+from scrivr.parser.processing_rules import *
+from scrivr.parser import ScrivrParser
 import pytest
 import filecmp
 
@@ -20,7 +20,7 @@ def ignore_warnings(func):
 class TestScrivr(unittest.TestCase):
     def setUp(self) -> None:
         self.test_dir = tempfile.mkdtemp()
-        self.scrivr = Scrivr()
+        self.scrivr = ScrivrParser()
         self.output_dir = os.path.join(self.test_dir, 'output')
         self.rule = RemoveDuplicateEmptyLinesRule()
 
@@ -84,8 +84,8 @@ class TestScrivr(unittest.TestCase):
                         with open(os.path.join(subdir_path, file), 'w') as f:
                             f.write('<html><head><title>{}</title></head><body></body></html>'.format(file))
 
-                # Run the Scrivr on the temporary directory
-                dp = Scrivr(input_dir=tempdir, output_dir=tempdir)
+                # Run the ScrivrParser on the temporary directory
+                dp = ScrivrParser(input_dir=tempdir, output_dir=tempdir)
                 dp.process_files()
 
                 # Check that all the files were processed
@@ -101,8 +101,8 @@ class TestScrivr(unittest.TestCase):
     def test_no_files_warning(self):
         # Create a temporary empty directory for input
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Instantiate Scrivr with the empty directory
-            s = Scrivr(input_dir=tmpdir, output_dir=os.path.join(tmpdir, 'output'), num_processes=1)
+            # Instantiate ScrivrParser with the empty directory
+            s = ScrivrParser(input_dir=tmpdir, output_dir=os.path.join(tmpdir, 'output'), num_processes=1)
 
             # Capture the warning message
             with warnings.catch_warnings(record=True) as w:
@@ -117,7 +117,7 @@ class TestScrivr(unittest.TestCase):
             f.write("test")
 
         # Run the process_files method
-        s = Scrivr(str(self.test_dir), str(self.test_dir))
+        s = ScrivrParser(str(self.test_dir), str(self.test_dir))
         with pytest.warns(None) as warning:
             s.process_files()
 
@@ -150,13 +150,13 @@ class TestScrivr(unittest.TestCase):
         assert isinstance(self.scrivr.processing_rules[0], RemoveDuplicateEmptyLinesRule)
 
     def test_main_no_input_directory(self):
-        processor = Scrivr()
+        processor = ScrivrParser()
         with self.assertRaises(ValueError) as cm:
             processor.process_files()
         self.assertEqual(str(cm.exception), "No input directory specified.")
 
     def test_main_no_output_directory(self):
-        processor = Scrivr(input_dir='test_input')
+        processor = ScrivrParser(input_dir='test_input')
         with self.assertRaises(ValueError) as cm:
             processor.process_files()
         self.assertEqual(str(cm.exception), "No output directory specified.")
@@ -203,7 +203,7 @@ class TestScrivr(unittest.TestCase):
         with open(input_file_path, "w") as f:
             f.write("test")
 
-        s = Scrivr(input_dir=self.test_dir, output_dir=self.test_dir, output_filetype="")
+        s = ScrivrParser(input_dir=self.test_dir, output_dir=self.test_dir, output_filetype="")
         s.process_files()
 
         output_file_path = os.path.join(self.test_dir, "test.txt")
@@ -239,7 +239,7 @@ class TestScrivr(unittest.TestCase):
         input_dir = os.path.join(os.path.dirname(__file__), "test_files")
         output_dir = os.path.join(self.test_dir, "output")
 
-        scrivr = Scrivr(input_dir=input_dir, output_dir=output_dir, num_processes=2)
+        scrivr = ScrivrParser(input_dir=input_dir, output_dir=output_dir, num_processes=2)
         scrivr.process_files()
 
         mock_process.assert_called_with(
@@ -250,7 +250,7 @@ class TestScrivr(unittest.TestCase):
 
 class TestParseFile(unittest.TestCase):
     def setUp(self) -> None:
-        self.scrivr = Scrivr()
+        self.scrivr = ScrivrParser()
 
     def test_parse_file_html(self):
         html_text = '<html><body><h1>Hello, world!</h1><p>This is some text.</p></body></html>'
