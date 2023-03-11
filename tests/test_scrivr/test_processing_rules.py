@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import pytest
 from bs4 import BeautifulSoup
+import textwrap
 
 class TestConfigFile(unittest.TestCase):
 
@@ -168,6 +169,93 @@ class TestHtmlVisibleTextRule(unittest.TestCase):
         soup_output = BeautifulSoup(output, 'html.parser')
         self.assertEqual(soup_expected.text, soup_output.text)
 
+class TestDeleteTextAfterMatch(unittest.TestCase):
+    def test_delete_line_after_match(self):
+        input_text = "This is the first line\nThis exists{#This text should be deleted\n#} Some other text on a new line"
+        expected_output = "This is the first line\nThis exists\n#} Some other text on a new line"
+
+        rule = DeleteTextAfterMatch("{#")
+        output_text = rule.process(input_text)
+
+        self.assertEqual(output_text, expected_output)
+
+class TestTableFromPattern(unittest.TestCase):
+
+    def test_create_table_from_pattern(self):
+        input_text = textwrap.dedent("""
+        This test begins like this.
+        It is very good.
+
+        ---- ---- ---- ----
+        Anotr bol    Bigg wha    Colo    Dolo bing
+        1    2    3    4
+        5    6    7    8
+        ---- ---- ---- ----
+
+        This comes after the table.
+        """)
+        expected_output = textwrap.dedent("""
+        This test begins like this.
+        It is very good.
+
+        | - | - | - | - |
+        | --- | --- | --- | --- |
+        | Anotr bol | Bigg wha | Colo | Dolo bing |
+        | 1 | 2 | 3 | 4 |
+        | 5 | 6 | 7 | 8 |
+
+        This comes after the table.
+        """)
+
+        rule = TableFromPattern()
+        output_text = rule.process(input_text)
+        print('')
+        print(output_text)
+        assert output_text == expected_output
+
+    def test_create_multiple_table_from_pattern(self):
+        input_text = textwrap.dedent("""
+        This test begins like this.
+        It is very good.
+
+        ---- ---- ---- ----
+        Anotr bol    Bigg wha    Colo    Dolo bing
+        1    2    3    4
+        5    6    7    8
+        ---- ---- ---- ----
+
+        This comes after the table.
+
+        ---- ----
+        You know it   Hello
+        1    2
+        5    6
+        ---- ----
+        """)
+        expected_output = textwrap.dedent("""
+        This test begins like this.
+        It is very good.
+
+        | - | - | - | - |
+        | --- | --- | --- | --- |
+        | Anotr bol | Bigg wha | Colo | Dolo bing |
+        | 1 | 2 | 3 | 4 |
+        | 5 | 6 | 7 | 8 |
+
+        This comes after the table.
+
+        | - | - |
+        | --- | --- |
+        | You know it | Hello |
+        | 1 | 2 |
+        | 5 | 6 |
+        """)
+
+        rule = TableFromPattern()
+        output_text = rule.process(input_text)
+        print('')
+        print(output_text)
+        assert output_text == expected_output
 
 if __name__ == '__main__':
     unittest.main()

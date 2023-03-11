@@ -210,6 +210,29 @@ class TestScrivr(unittest.TestCase):
         assert os.path.exists(output_file_path)
         assert filecmp.cmp(input_file_path, output_file_path)
 
+    def test_process_files_no_extension(self) -> None:
+        expected_string  = "This is some test text."
+
+        input_file_path = os.path.join(self.test_dir, "test")
+        with open(input_file_path, "w") as f:
+            f.write(expected_string)
+
+        # Set output_filetype to ".html"
+        self.scrivr.output_filetype = ".html"
+
+        # Call process_files with the temporary file
+        self.scrivr.input_dir = self.test_dir
+        self.scrivr.output_dir = self.output_dir
+        self.scrivr.process_files()
+
+        # Verify that the processed file has the correct extension and contents
+        base_name = os.path.splitext(os.path.basename(input_file_path))[0]
+        output_file_path = os.path.join(
+            self.scrivr.output_dir, base_name + ".html"
+        )
+        assert os.path.exists(output_file_path)
+        with open(output_file_path) as f:
+            assert f.read() == "This is some test text."
 
     @patch("multiprocessing.Process")
     def test_main_multiprocessing(self, mock_process):

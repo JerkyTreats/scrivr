@@ -6,7 +6,8 @@ import warnings
 from bs4 import BeautifulSoup
 
 class ProcessingRule:
-    pass
+    def process(self):
+        pass
 
 class RemoveDuplicateEmptyLinesRule(ProcessingRule):
     def process(self, text):
@@ -96,6 +97,62 @@ class MatchStringsAction(ActionableRule):
             for m in matches:
                 text = self.apply_action(text, m)
         return text
+
+class DeleteTextAfterMatch(ProcessingRule):
+    def __init__(self, match_string: str):
+        self.match_string = match_string
+
+    def process(self, text: str) -> str:
+        lines = text.split("\n")
+        new_lines = []
+        for line in lines:
+            if self.match_string in line:
+                line = line.split(self.match_string)[0]
+            new_lines.append(line)
+        return "\n".join(new_lines)
+
+class TableFromPattern(ProcessingRule):
+    def process(self, text: str) -> str:
+
+        # Loop this as many times as a convertable table is found
+        while(True):
+            lines = text.split("\n")
+
+            # Find the start and end of the table
+            start_idx = None
+            end_idx = None
+            for i, line in enumerate(lines):
+                # Matches string starting with 3 or more `---`
+                if re.match(r"^-*-{3,}", line.lstrip()):
+                    if start_idx is None:
+                        start_idx = i
+                    elif end_idx is None:
+                        end_idx = i
+                        break
+
+            # Convertable table counts as all lines between two `---` lines
+            # If no convertable tables found, return text
+            if (start_idx == None) or (end_idx == None):
+                return text
+
+            columns=0
+
+            # Extract the row values and build the table body
+            table_body = []
+            for line in lines[start_idx+1:end_idx]:
+                row_values = re.split(r"\s{3,}", line)
+                if (len(row_values) > columns):
+                    columns = len(row_values)
+                output_row = "| " + " | ".join(row_values) + " |"
+                table_body.append(output_row)
+
+            table_header = "| " + " | ".join("-" * columns) + " |"
+            table_delim = "| " + " | ".join(["---"] * columns) + " |"
+
+            # Replace the unconverted lines with the constructed table
+            del(lines[start_idx:end_idx+1])
+            lines[start_idx:start_idx] = ["\n".join([table_header, table_delim] + table_body)]
+            text = "\n".join(lines)
 
 
 def create_processing_rule(rule_config):
