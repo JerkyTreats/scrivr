@@ -3,6 +3,7 @@ import os
 import time
 from scrivr.transformer import TransformerPreprocessor
 import multiprocessing
+import pandas as pd
 
 class TestTransformerPreprocessor(unittest.TestCase):
     def setUp(self):
@@ -56,6 +57,33 @@ class TestTransformerPreprocessor(unittest.TestCase):
         # stop the watcher
         watcher.terminate()
         watcher.join()
+
+    def test_process_queue(self):
+        # create a test DataFrame
+        self.df = pd.DataFrame({
+            'ingest_file_path': ['test_0.txt', 'test_1.txt'],
+            'ingest_file_last_modified': [time.time(), time.time()],
+            'data': ['test content 0', 'test content 1']
+        })
+
+        tp = TransformerPreprocessor(self.test_dir)
+
+        # add a new file to the queue
+        tp.queue.put(('test_2.txt', time.time()))
+
+        # add sentinel value to signal end of queue
+        tp.queue.put(None)
+
+        # process the queue
+        tp.process_queue()
+
+        # check that the new file was added to the DataFrame
+        self.assertEqual(len(tp.df), 3)
+        self.assertCountEqual(list(tp.df['ingest_file_path']), ['test_0.txt', 'test_1.txt', 'test_2.txt'])
+
+        # check that the data for the new file was processed correctly
+        self.assertEqual(tp.df.loc[tp.df['ingest_file_path'] == 'test_2.txt', 'data'].values[0], 'test content 2')
+
 
 if __name__ == '__main__':
     unittest.main()

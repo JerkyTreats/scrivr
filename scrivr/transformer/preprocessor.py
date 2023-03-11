@@ -55,6 +55,10 @@ class TransformerPreprocessor:
             # Wait for an update to the DataFrame to be added to the queue
             update = self.queue.get()
 
+            # Check if the update is a tuple with two elements
+            if not isinstance(update, tuple) or len(update) != 2:
+                break
+
             # Check if the file already exists in the DataFrame
             index = self.df.index[self.df['ingest_file_path'] == update[0]].tolist()
 
