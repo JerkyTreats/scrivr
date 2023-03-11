@@ -66,6 +66,13 @@ class TestMatchAndActionRule(unittest.TestCase):
         expected_output = "This is some text to "
         assert output_text == expected_output
 
+    def test_process_replace_text_with_replacement(self):
+        input_text = "The quick brown fox jumps over the lazy dog"
+        expected_output = "The quick red fox jumps over the lazy dog"
+        rule = MatchAndActionRule("brown", "replace_text", "red")
+        output_text = rule.process(input_text)
+        self.assertEqual(output_text, expected_output)
+
 class TestMatchMultipleStringsAndActionRule(unittest.TestCase):
     def setUp(self):
         self.tmp_path = tempfile.mkdtemp()

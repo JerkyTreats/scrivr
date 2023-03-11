@@ -31,25 +31,28 @@ class ActionableRule(ProcessingRule):
         self.match = match
         self.action = action
 
-    def apply_action(self, text, match):
+    def apply_action(self, text, match, replacement=""):
         if self.action == "delete":
             match = re.escape(match)
             text = re.sub(match, "", text)
         elif self.action == "delete_line":
             lines = text.split("\n")
             text = "\n".join([line for line in lines if match not in line])
+        elif self.action == "replace_text":
+            text = re.sub(match, replacement, text)
         return text
 
 class MatchAndActionRule(ActionableRule):
-    def __init__(self, match, action):
+    def __init__(self, match, action, replacement = ""):
         self.match = match
         self.action = action
+        self.replacement = replacement
 
     def process(self, text):
         pattern = re.compile(self.match)
         matches = pattern.findall(text)
         for match in matches:
-            text = self.apply_action(text, match)
+            text = self.apply_action(text, match, replacement=self.replacement)
         return text
 
 class MatchMultipleStringsAndActionRule(ActionableRule):
