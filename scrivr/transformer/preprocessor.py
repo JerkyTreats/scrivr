@@ -2,6 +2,7 @@ import os
 import time
 import multiprocessing
 import pandas as pd
+import warnings
 
 class TransformerPreprocessor:
     def __init__(self, input_dir):
@@ -68,12 +69,17 @@ class TransformerPreprocessor:
                 self.df.at[index[0], 'data'] = self.process_file(update[0])
             else:
                 # Add a new row to the DataFrame
-                self.df = self.df.append({'ingest_file_path': update[0],
-                                          'ingest_file_last_modified': update[1],
-                                          'data': self.process_file(update[0])},
-                                         ignore_index=True)
+                new_row = pd.DataFrame({'ingest_file_path': [update[0]],
+                                        'ingest_file_last_modified': [update[1]],
+                                        'data': [self.process_file(update[0])]},
+                                        )
+                self.df = pd.concat([self.df, new_row], ignore_index=True)
 
     def process_file(self, filename):
-        with open(os.path.join(self.input_dir, filename), 'r') as f:
+        file_path = os.path.join(self.input_dir, filename)
+        if not os.path.isfile(file_path):
+            warnings.warn(f"File not found: {file_path}")
+            return ''
+        with open(file_path, 'r') as f:
             content = f.read()
         return content
