@@ -3,14 +3,21 @@ import time
 import multiprocessing
 import pandas as pd
 import warnings
+import threading
 
 class TransformerPreprocessor:
-    def __init__(self, input_dir):
+    def __init__(self, input_dir, seconds_for_empty_queue=5):
         self.input_dir = input_dir
         self.df = pd.DataFrame(columns=['ingest_file_path', 'ingest_file_last_modified', 'data'])
         self.queue = multiprocessing.Queue()
+        self.observers = []
+        self.seconds_for_empty_queue = seconds_for_empty_queue
 
         self.initialize_queue()
+
+        # Initialize the timer to send an empty queue message
+        self.empty_queue_timer = threading.Timer(10, self.empty_queue_message)
+        self.empty_queue_timer.start()
 
     def initialize_queue(self):
         # Initialize the dataframe with existing files in the directory
@@ -48,10 +55,21 @@ class TransformerPreprocessor:
                     # Add the update to the queue
                     self.queue.put((filename, last_modified))
 
+            # Check if the queue is empty
+            if self.queue.empty():
+                # Stop the timer
+                self.empty_queue_timer.cancel()
+
+                # Start the timer again to send the empty queue message
+                self.empty_queue_timer = threading.Timer(10, self.empty_queue_message)
+                self.empty_queue_timer.start()
+
             # Wait for a short period of time before checking again
             time.sleep(1)
 
     def process_queue(self):
+        queue_empty_time = None
+
         while True:
             # Wait for an update to the DataFrame to be added to the queue
             update = self.queue.get()
@@ -59,6 +77,9 @@ class TransformerPreprocessor:
             # Check if the update is a tuple with two elements
             if not isinstance(update, tuple) or len(update) != 2:
                 break
+
+            # Reset the queue empty time
+            queue_empty_time = None
 
             # Check if the file already exists in the DataFrame
             index = self.df.index[self.df['ingest_file_path'] == update[0]].tolist()
@@ -75,6 +96,20 @@ class TransformerPreprocessor:
                                         )
                 self.df = pd.concat([self.df, new_row], ignore_index=True)
 
+            # Notify observers that the queue has been updated
+            for observer in self.observers:
+                observer.queue_updated(self.df)
+
+        # Check if the queue has been empty for X seconds
+        if queue_empty_time is None:
+            queue_empty_time = time.monotonic()
+
+        if time.monotonic() - queue_empty_time > self.seconds_for_empty_queue:
+            # Notify observers that the queue has been empty for X seconds
+            for observer in self.observers:
+                observer.queue_empty()
+
+
     def process_file(self, filename):
         file_path = os.path.join(self.input_dir, filename)
         if not os.path.isfile(file_path):
@@ -83,3 +118,9 @@ class TransformerPreprocessor:
         with open(file_path, 'r') as f:
             content = f.read()
         return content
+
+    def add_observer(self, observer):
+        self.observers.append(observer)
+
+    def remove_observer(self, observer):
+        self.observers.remove(observer)
